@@ -118,20 +118,35 @@ target_compile_options(secp256k1 PRIVATE -w -fstack-protector-strong)
 # renames in ccan to avoid symbol collisions). secp256k1 has been hoisted
 # into its own target above and is now a link dependency.
 # ---------------------------------------------------------------------------
-add_library(wally STATIC ${WALLY_DIR}/upstream/src/amalgamation/combined.c)
+#
+# kern_wally.c wraps the seed/mnemonic/key derivations so their libwally
+# allocations go through kern_secret_alloc(); secret_alloc.c is the
+# allocator itself (plain malloc off-device). Both mirror Kern's simulator
+# wally target, and main/ calls the kern_bip*_ wrappers directly.
+# ---------------------------------------------------------------------------
+add_library(wally STATIC
+    ${WALLY_DIR}/kern_wally.c
+    ${KERN_DIR}/components/secure_memory/secret_alloc.c
+    ${WALLY_DIR}/upstream/src/amalgamation/combined.c
+)
 target_include_directories(wally PUBLIC
+    ${WALLY_DIR}
     ${WALLY_DIR}/upstream/include
+    ${KERN_DIR}/components/secure_memory/include
 )
 target_include_directories(wally PRIVATE
     # MUST come first: shadows the three secp256k1 #includes in combined.c
     # so this TU does not redundantly compile secp256k1 inline.
     ${CMAKE_CURRENT_SOURCE_DIR}/wally_secp_stubs
-    ${WALLY_DIR}
     ${WALLY_DIR}/upstream
     ${WALLY_DIR}/upstream/src
     ${WALLY_DIR}/upstream/src/ccan
     ${MBEDTLS_DIR}/include
 )
+# Kern's config.h sets HAVE_EXPLICIT_BZERO for its secret wiping, but bionic
+# has no explicit_bzero at any API level. android_posix_compat.c provides one;
+# this force-include supplies the prototype the amalgamation expects.
+target_compile_options(wally PRIVATE -include ${CMAKE_CURRENT_SOURCE_DIR}/android_posix_compat.h)
 target_compile_definitions(wally PRIVATE
     BUILD_ELEMENTS=0
     BUILD_MINIMAL=1
@@ -158,6 +173,7 @@ target_include_directories(kern_common INTERFACE
     ${KERN_DIR}/components/k_quirc/src
     ${KERN_DIR}/components/cUR/src
     ${KERN_DIR}/components/video
+    ${KERN_DIR}/components/secure_memory/include
     ${KERN_DIR}/simulator/platform
     ${KERN_DIR}/simulator/platform/esp_idf_stubs/include
     ${KERN_DIR}/simulator/platform/bsp_sim/include
@@ -267,6 +283,9 @@ set(KERN_COMPONENT_SOURCES
     ${KERN_DIR}/components/bbqr/src/base32.c
     # Shared zlib adapter used by KEF and BBQr (zlib itself comes from the NDK)
     ${KERN_DIR}/components/deflate_codec/src/deflate_codec.c
+    # kern_memory_wipe() plus the host-side __wrap_free/__wrap_realloc that
+    # scrub every block on release; the --wrap link options below bind them.
+    ${KERN_DIR}/components/secure_memory/secure_memory.c
 )
 
 add_library(kern_core STATIC
@@ -295,6 +314,10 @@ target_link_libraries(kern_android PRIVATE
     log
     m
 )
+# Same release policy as Kern's simulator: every free()/realloc() inside this
+# library wipes the block first (secure_memory.c's __wrap_* via
+# malloc_usable_size). Applies to LVGL, wally and mbedtls objects too.
+target_link_options(kern_android PRIVATE -Wl,--wrap=free -Wl,--wrap=realloc)
 # Note: mbedcrypto is pulled in transitively via wally -> kern_core. The TLS
 # and X.509 libraries (mbedtls, mbedx509) are intentionally not linked: a
 # symbol audit showed Kern only uses AES/GCM/Base64/MD/HMAC/PKCS5/SHA, all of
