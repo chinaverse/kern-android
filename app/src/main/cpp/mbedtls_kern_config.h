@@ -4,8 +4,9 @@
  * Kern only calls primitives in libmbedcrypto: AES (CBC/CTR/ECB), GCM,
  * Base64, MD/HMAC, PKCS#5 PBKDF2, SHA-256, SHA-512 — plus the PSA Crypto
  * API, which core/crypto_utils.c is written against (AES cipher/AEAD,
- * SHA-256, PBKDF2-HMAC key derivation). Everything else (TLS, X.509, PK,
- * ECP, RSA, ChaCha20, Camellia/ARIA/DES, ...) is dead code in this build,
+ * SHA-256, PBKDF2-HMAC key derivation) and core/bip138_crypto.c uses for
+ * ChaCha20-Poly1305. Everything else (TLS, X.509, PK, ECP, RSA,
+ * Camellia/ARIA/DES, ...) is dead code in this build,
  * so this config disables the lot at compile time and shrinks
  * libmbedcrypto.a accordingly.
  *
@@ -29,6 +30,13 @@
 /* Symmetric primitives. */
 #define MBEDTLS_AES_C
 #define MBEDTLS_GCM_C
+
+/* ChaCha20-Poly1305 AEAD for BIP138 descriptor backups (core/bip138_crypto.c,
+ * via PSA). The legacy switches map to PSA_WANT_KEY_TYPE_CHACHA20 and
+ * PSA_WANT_ALG_CHACHA20_POLY1305, as CONFIG_MBEDTLS_CHACHA*_C do on device. */
+#define MBEDTLS_CHACHA20_C
+#define MBEDTLS_POLY1305_C
+#define MBEDTLS_CHACHAPOLY_C
 
 /* Encodings & key derivation. */
 #define MBEDTLS_BASE64_C

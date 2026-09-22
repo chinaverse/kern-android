@@ -168,6 +168,7 @@ target_include_directories(kern_common INTERFACE
     ${KERN_DIR}/main
     ${KERN_DIR}/components
     ${KERN_DIR}/components/bbqr/src
+    ${KERN_DIR}/components/bip138/include
     ${KERN_DIR}/components/deflate_codec/src
     ${KERN_DIR}/components/k_quirc/include
     ${KERN_DIR}/components/k_quirc/src
@@ -277,6 +278,9 @@ list(FILTER KERN_MAIN_SOURCES EXCLUDE REGEX ".*/core/pbkdf2_selftest\\.c$")
 
 file(GLOB KQUIRC_SOURCES CONFIGURE_DEPENDS ${KERN_DIR}/components/k_quirc/src/*.c)
 file(GLOB_RECURSE CUR_SOURCES CONFIGURE_DEPENDS ${KERN_DIR}/components/cUR/src/*.c)
+# BIP138 descriptor backups; the ChaCha20-Poly1305 and SHA-256 callbacks it
+# calls are Kern's core/bip138_crypto.c, backed by PSA.
+file(GLOB BIP138_SOURCES CONFIGURE_DEPENDS ${KERN_DIR}/components/bip138/src/*.c)
 
 set(KERN_COMPONENT_SOURCES
     ${KERN_DIR}/components/bbqr/src/bbqr.c
@@ -293,6 +297,7 @@ add_library(kern_core STATIC
     ${KERN_COMPONENT_SOURCES}
     ${KQUIRC_SOURCES}
     ${CUR_SOURCES}
+    ${BIP138_SOURCES}
 )
 target_link_libraries(kern_core PUBLIC kern_common lvgl wally z)
 
