@@ -90,23 +90,20 @@ target_include_directories(secp256k1 PRIVATE
     ${SECP256K1_DIR}/src/modules/ecdsa_s2c
     ${SECP256K1_DIR}/src/modules/extrakeys
     ${SECP256K1_DIR}/src/modules/generator
-    ${SECP256K1_DIR}/src/modules/rangeproof
     ${SECP256K1_DIR}/src/modules/recovery
     ${SECP256K1_DIR}/src/modules/schnorrsig
-    ${SECP256K1_DIR}/src/modules/surjection
-    ${SECP256K1_DIR}/src/modules/whitelist
 )
+# The module set combined.c enables without BUILD_ELEMENTS (rangeproof,
+# surjection and whitelist are Elements-only) and with BUILD_STANDARD_SECP
+# (no MuSig2). Keep it in step with combined.c's header.
 target_compile_definitions(secp256k1 PRIVATE
     ECMULT_WINDOW_SIZE=8
     ENABLE_MODULE_ECDH=1
     ENABLE_MODULE_ECDSA_S2C=1
     ENABLE_MODULE_EXTRAKEYS=1
     ENABLE_MODULE_GENERATOR=1
-    ENABLE_MODULE_RANGEPROOF=1
     ENABLE_MODULE_RECOVERY=1
     ENABLE_MODULE_SCHNORRSIG=1
-    ENABLE_MODULE_SURJECTIONPROOF=1
-    ENABLE_MODULE_WHITELIST=1
     HAVE_BUILTIN_POPCOUNT=1
     NDEBUG=1
 )
@@ -147,14 +144,18 @@ target_include_directories(wally PRIVATE
 # has no explicit_bzero at any API level. android_posix_compat.c provides one;
 # this force-include supplies the prototype the amalgamation expects.
 target_compile_options(wally PRIVATE -include ${CMAKE_CURRENT_SOURCE_DIR}/android_posix_compat.h)
+# libwally tests BUILD_ELEMENTS with #ifdef: defining it, even as 0, enables
+# Elements, and internal.h rejects it alongside WALLY_ABI_NO_ELEMENTS.
 target_compile_definitions(wally PRIVATE
-    BUILD_ELEMENTS=0
     BUILD_MINIMAL=1
     # Standard libsecp256k1: drops MuSig2 + ecdsa-s2c/anti-exfil (unused by Kern).
     BUILD_STANDARD_SECP=1
     HAVE_BUILTIN_POPCOUNT=1
     NDEBUG=1
 )
+# Drops the Elements fields from libwally's public structs. It changes their
+# layout, so it is PUBLIC: every user of the headers must see it.
+target_compile_definitions(wally PUBLIC WALLY_ABI_NO_ELEMENTS)
 target_compile_options(wally PRIVATE -w -fstack-protector-strong)
 target_link_libraries(wally PUBLIC mbedcrypto secp256k1)
 
@@ -244,6 +245,8 @@ set(KERN_SIM_SOURCES
     ${KERN_DIR}/simulator/platform/esp_idf_stubs/sim_storage_hooks.c
     ${KERN_DIR}/simulator/platform/esp_idf_stubs/storage_sim.c
     ${KERN_DIR}/simulator/platform/esp_idf_stubs/fw_update_sim.c
+    # pbkdf2_psa_sha256/512, in place of core/pbkdf2.c (excluded below)
+    ${KERN_DIR}/simulator/platform/esp_idf_stubs/pbkdf2_sim.c
     ${KERN_DIR}/simulator/platform/sd_card_sim/sd_card_sim.c
     ${KERN_DIR}/simulator/platform/bsp_sim/pmic_sim.c
     ${CMAKE_CURRENT_SOURCE_DIR}/android_freertos.c
@@ -270,9 +273,10 @@ list(FILTER KERN_MAIN_SOURCES EXCLUDE REGEX ".*/test/.*")
 list(FILTER KERN_MAIN_SOURCES EXCLUDE REGEX ".*/core/storage\\.c$")
 list(FILTER KERN_MAIN_SOURCES EXCLUDE REGEX ".*/core/fw_update\\.c$")
 # core/pbkdf2.c drives the ESP32-P4 SHA accelerator (hal/, sha/ headers) and
-# core/pbkdf2_selftest.c only exercises it. SIMULATOR routes
-# crypto_pbkdf2_sha256() through mbedtls_pkcs5 instead, so neither is reachable
-# here. The simulator's own build leaves both out for the same reason.
+# core/pbkdf2_selftest.c only exercises it. Without CONFIG_KERN_PBKDF2_HW_SHA,
+# crypto_pbkdf2_sha256/512() call pbkdf2_psa_sha256/512(), which the
+# simulator's pbkdf2_sim.c (in kern_sim_stubs) provides over mbedtls_pkcs5.
+# The simulator's own build makes the same swap.
 list(FILTER KERN_MAIN_SOURCES EXCLUDE REGEX ".*/core/pbkdf2\\.c$")
 list(FILTER KERN_MAIN_SOURCES EXCLUDE REGEX ".*/core/pbkdf2_selftest\\.c$")
 

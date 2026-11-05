@@ -16,6 +16,7 @@
 
 extern "C" {
 #include "bsp/pmic.h"
+#include "core/crypto_init.h"
 #include "core/entropy_pool.h"
 #include "core/nvs_secure.h"
 #include "core/pin.h"
@@ -34,7 +35,6 @@ extern "C" {
 #include "ui/theme_widgets.h"
 #include "utils/bip39_filter.h"
 #include "video/video.h"
-#include "wally_core.h"
 }
 
 #define LOG_TAG "KernAndroid"
@@ -136,8 +136,10 @@ bool start_kern(ANativeWindow *window, int width, int height,
     // Seed before anything can ask for randomness (mirrors app_main)
     entropy_pool_init();
 
-    if (wally_init(0) != WALLY_OK) {
-        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "wally_init failed");
+    // libwally, secp256k1 blinding (drawn from the pool seeded above) and the
+    // BIP39 PBKDF2 hook, as app_main and main_sim do.
+    if (!crypto_init()) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "crypto_init failed");
         return false;
     }
 
