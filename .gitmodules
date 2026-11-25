@@ -1,6 +1,6 @@
 [submodule "third_party/Kern"]
 	path = third_party/Kern
-	url = https://github.com/odudex/Kern.git
+	url = https://github.com/chinaverse/Kern-pinyin.git
 [submodule "third_party/lvgl"]
 	path = third_party/lvgl
 	url = https://github.com/lvgl/lvgl.git
