@@ -120,9 +120,15 @@ target_compile_options(secp256k1 PRIVATE -w -fstack-protector-strong)
 # allocations go through kern_secret_alloc(); secret_alloc.c is the
 # allocator itself (plain malloc off-device). Both mirror Kern's simulator
 # wally target, and main/ calls the kern_bip*_ wrappers directly.
+#
+# kern_wally_zh.c (Kern-pinyin) compiles libwally's Chinese (simplified)
+# BIP39 wordlist in on its own, since BUILD_MINIMAL drops every non-English
+# table. Pinyin mnemonic entry looks words up in it, and a Chinese mnemonic
+# is translated to English by shared BIP39 index before seed derivation.
 # ---------------------------------------------------------------------------
 add_library(wally STATIC
     ${WALLY_DIR}/kern_wally.c
+    ${WALLY_DIR}/kern_wally_zh.c
     ${KERN_DIR}/components/secure_memory/secret_alloc.c
     ${WALLY_DIR}/upstream/src/amalgamation/combined.c
 )
@@ -245,6 +251,8 @@ set(KERN_SIM_SOURCES
     ${KERN_DIR}/simulator/platform/esp_idf_stubs/sim_storage_hooks.c
     ${KERN_DIR}/simulator/platform/esp_idf_stubs/storage_sim.c
     ${KERN_DIR}/simulator/platform/esp_idf_stubs/fw_update_sim.c
+    # Stand-in for core/secure_boot.c (eFuse lockdown; excluded below)
+    ${KERN_DIR}/simulator/platform/esp_idf_stubs/secure_boot_sim.c
     # pbkdf2_psa_sha256/512, in place of core/pbkdf2.c (excluded below)
     ${KERN_DIR}/simulator/platform/esp_idf_stubs/pbkdf2_sim.c
     ${KERN_DIR}/simulator/platform/sd_card_sim/sd_card_sim.c
@@ -258,6 +266,12 @@ set(KERN_SIM_SOURCES
 # below). stb_image_impl.c was only used by video_sim.c for PNG/JPG decoding
 # and has no other consumer in the Android build.
 add_library(kern_sim_stubs STATIC ${KERN_SIM_SOURCES})
+# kern_sb_digests.h: the published Secure Boot key digests, generated from
+# third_party/Kern/kern_secure_boot/ as Kern's simulator does. Both
+# secure_boot_sim.c and the Secure Boot settings page include it.
+include(${KERN_DIR}/main/core/sb_digests.cmake)
+kern_generate_sb_digests(${CMAKE_CURRENT_BINARY_DIR}/generated)
+target_include_directories(kern_common INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/generated)
 target_link_libraries(kern_sim_stubs PUBLIC kern_common lvgl wally)
 
 # ---------------------------------------------------------------------------
@@ -265,13 +279,16 @@ target_link_libraries(kern_sim_stubs PUBLIC kern_common lvgl wally)
 # Excludes main.c (we drive lifecycle from JNI), test/, core/storage.c
 # (compiled through simulator's storage_sim.c with SPIFFS path hooks), and
 # core/fw_update.c (OTA + Secure Boot v2 signature verification, replaced by
-# simulator's fw_update_sim.c).
+# simulator's fw_update_sim.c), and core/secure_boot.c + core/sbv2.c (eFuse
+# burning and signed-image checks, replaced by simulator's secure_boot_sim.c).
 # ---------------------------------------------------------------------------
 file(GLOB_RECURSE KERN_MAIN_SOURCES CONFIGURE_DEPENDS ${KERN_DIR}/main/*.c)
 list(FILTER KERN_MAIN_SOURCES EXCLUDE REGEX ".*/main\\.c$")
 list(FILTER KERN_MAIN_SOURCES EXCLUDE REGEX ".*/test/.*")
 list(FILTER KERN_MAIN_SOURCES EXCLUDE REGEX ".*/core/storage\\.c$")
 list(FILTER KERN_MAIN_SOURCES EXCLUDE REGEX ".*/core/fw_update\\.c$")
+list(FILTER KERN_MAIN_SOURCES EXCLUDE REGEX ".*/core/secure_boot\\.c$")
+list(FILTER KERN_MAIN_SOURCES EXCLUDE REGEX ".*/core/sbv2\\.c$")
 # core/pbkdf2.c drives the ESP32-P4 SHA accelerator (hal/, sha/ headers) and
 # core/pbkdf2_selftest.c only exercises it. Without CONFIG_KERN_PBKDF2_HW_SHA,
 # crypto_pbkdf2_sha256/512() call pbkdf2_psa_sha256/512(), which the

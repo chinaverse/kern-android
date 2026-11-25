@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Kern</string>
+    <string name="app_name">Kern Pinyin</string>
     <string name="warning_title">Kern Android — research and development</string>
     <string name="warning_message">Kern is a research and development project. This build simulates its interface so you can explore Kern and air-gapped Bitcoin transactions on a phone. A phone cannot fully isolate keys from the OS, libraries, or peripherals, so do not use it for wallets holding real funds or important mnemonics.</string>
     <string name="warning_acknowledge">I understand</string>

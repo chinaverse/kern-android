@@ -61,7 +61,11 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.odudex.kern"
+        // Its own application ID, so it installs next to odudex's Kern
+        // Android App (com.odudex.kern, signed with a different key) instead
+        // of being rejected as a conflicting package. The Kotlin package and
+        // JNI symbols stay com.odudex.kern via `namespace` above.
+        applicationId = "com.chinaverse.kern.pinyin"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
