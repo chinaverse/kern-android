@@ -10,7 +10,9 @@ Android simulator shell for the Kern LVGL UI.
 
 ## What is included
 
-- Kotlin `SurfaceView` Android app at package `com.odudex.kern`
+- Kotlin `SurfaceView` Android app, application ID `com.chinaverse.kern.pinyin`
+  (Kotlin package `com.odudex.kern`), so it installs alongside odudex's Kern
+  Android App
 - JNI/native bridge in `app/src/main/cpp`
 - Android LVGL display/input driver using `ANativeWindow`
 - Kern simulator shims reused from `third_party/Kern/simulator`
@@ -78,7 +80,7 @@ Unset the property (or remove the line) to restore the full release matrix.
 emulator -avd kern_test -no-window -no-audio -no-snapshot -gpu swiftshader_indirect
 adb wait-for-device
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.odudex.kern/.MainActivity
+adb shell am start -n com.chinaverse.kern.pinyin/com.odudex.kern.MainActivity
 ```
 
 ## Install On USB Device
@@ -90,7 +92,7 @@ then accept the debugging prompt.
 ./gradlew :app:assembleDebug
 adb devices
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.odudex.kern/.MainActivity
+adb shell am start -n com.chinaverse.kern.pinyin/com.odudex.kern.MainActivity
 ```
 
 ## Notes
